@@ -9,13 +9,28 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            ProspectsView(filter: .none)
+                .tabItem {
+                    Label("Everyone", systemImage: "person.3.fill")
+                }
+
+            ProspectsView(filter: .contacted)
+                .tabItem {
+                    Label("Contacted", systemImage: "checkmark.circle.fill")
+                }
+
+            ProspectsView(filter: .uncontacted)
+                .tabItem {
+                    Label("Uncontacted", systemImage: "person.crop.circle.badge.questionmark")
+                }
+
+            MeView()
+                .tabItem {
+                    Label("Profile", systemImage: "person.crop.circle.fill")
+                }
         }
-        .padding()
+        .tint(.blue)
     }
 }
 
