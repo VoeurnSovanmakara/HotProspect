@@ -11,10 +11,6 @@ import SwiftUI
 import SwiftData
 import UserNotifications
 
-enum FilterType {
-    case none, contacted, uncontacted
-}
-
 struct ProspectsView: View {
     let filter: FilterType
     var title: String {
@@ -32,6 +28,22 @@ struct ProspectsView: View {
     @Query(sort: \Prospect.name) var prospects: [Prospect]
     @State private var isShowingScanner = false
     @State private var selectedProspects = Set<Prospect>()
+    @Environment(\.editMode) private var editMode
+    
+    // sort property
+    @State private var sortType: SortType = .name
+    var sortProspects: [Prospect] {
+        switch sortType {
+        case .name:
+            prospects.sorted {
+                $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+        case .recent:
+            prospects.sorted {
+                $0.createdAt > $1.createdAt
+            }
+        }
+    }
     
     init(filter: FilterType) {
         self.filter = filter
@@ -53,7 +65,7 @@ struct ProspectsView: View {
             let details = result.string.components(separatedBy: "\n")
             guard details.count == 2 else { return }
             
-            let person = Prospect(name: details[0], emailAddress: details[1], isContacted: false)
+            let person = Prospect(name: details[0], emailAddress: details[1], isContacted: false, createdAt: .now)
             
             modelContext.insert(person)
             
@@ -66,6 +78,7 @@ struct ProspectsView: View {
         for prospect in selectedProspects {
             modelContext.delete(prospect)
         }
+        selectedProspects.removeAll()
     }
     
     func addNotification(for prospect: Prospect){
@@ -104,8 +117,12 @@ struct ProspectsView: View {
     
     var body: some View {
         NavigationStack {
-            List(prospects, selection: $selectedProspects) { prospect in
-                ProspectRow(prospect: prospect)
+            List(sortProspects, selection: $selectedProspects) { prospect in
+                NavigationLink {
+                    EditProspectView(prospect: prospect)
+                } label: {
+                    ProspectRow(prospect: prospect)
+                }
                 .swipeActions {
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         modelContext.delete(prospect)
@@ -129,6 +146,7 @@ struct ProspectsView: View {
                 }
                 .tag(prospect)
             }
+            .disabled(editMode?.wrappedValue.isEditing == true)
             .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -137,13 +155,28 @@ struct ProspectsView: View {
                     }
                 }
                 
-                ToolbarItem(placement: .topBarLeading){
+                ToolbarItemGroup(placement: .topBarLeading) {
                     EditButton()
+
+                    Menu {
+                        Picker("Sort", selection: $sortType) {
+                            ForEach(SortType.allCases, id: \.self) { sort in
+                                Text(sort.rawValue)
+                                    .tag(sort)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
                 }
                 
-                if selectedProspects.isEmpty == false {
-                    ToolbarItem(placement: .bottomBar) {
-                        Button("Delete Selected", action: delete)
+                if !selectedProspects.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(role: .destructive) {
+                            delete()
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     }
                 }
             }
